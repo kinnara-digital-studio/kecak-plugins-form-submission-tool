@@ -1,0 +1,49 @@
+[
+  {
+    title : '@@formSubmissionTool.title@@',
+    properties : [
+      {
+        name : 'formDefId',
+        label : '@@formSubmissionTool.formDefId@@',
+        type : 'selectbox',
+        required : 'true',
+        options_ajax : '[CONTEXT_PATH]/web/json/console/app[APP_PATH]/forms/options'
+      },
+      {
+        name : 'primaryKey',
+        label : '@@formSubmissionTool.primaryKey@@',
+        type : 'textfield'
+      },
+      {
+        name : 'fieldValues',
+        label : '@@formSubmissionTool.fieldValues@@',
+        type : 'grid',
+        columns : [
+          {
+            name : 'field',
+            label : '@@formSubmissionTool.field@@'
+          },
+          {
+            name : 'value',
+            label : '@@formSubmissionTool.value@@'
+          }
+        ]
+      },
+      {
+        name : 'workflowVariables',
+        label : '@@formSubmissionTool.workflowVariables@@',
+        type : 'grid',
+        columns : [
+          {
+            name : 'field',
+            label : '@@formSubmissionTool.field@@'
+          },
+          {
+            name : 'value',
+            label : '@@formSubmissionTool.value@@'
+          }
+        ]
+      }
+    ]
+  }
+]

@@ -1,4 +1,4 @@
-package com.kinnara.kecakplugins.formsubmitiontool;
+package com.kinnara.kecakplugins.formsubmissiontool;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -14,7 +14,7 @@ public class Activator implements BundleActivator {
         registrationList = new ArrayList<ServiceRegistration>();
 
         //Register plugin here
-        //registrationList.add(context.registerService(MyPlugin.class.getName(), new MyPlugin(), null));
+        registrationList.add(context.registerService(FormSubmissionTool.class.getName(), new FormSubmissionTool(), null));
     }
 
     public void stop(BundleContext context) {
