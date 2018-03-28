@@ -6,7 +6,7 @@
     <packaging>bundle</packaging>
     <version>1.0.0</version>
     <name>kecak-plugins-form-submission-tool</name>
-    <url>http://www.joget.org</url>
+    <url>http://www.kecak.com</url>
     <build>
         <plugins>
             <plugin>
