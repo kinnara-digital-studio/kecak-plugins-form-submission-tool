@@ -43,7 +43,7 @@ public class FormSubmissionTool extends DefaultApplicationPlugin {
     public Object execute(Map map) {
         AppService appService = (AppService) AppUtil.getApplicationContext().getBean("appService");
         WorkflowAssignment workflowAssignment = (WorkflowAssignment) map.get("workflowAssignment");
-        Form form = generateForm(getPropertyString("formDefId"), workflowAssignment.getProcessId());
+        Form form = generateForm(map.get("formDefId").toString(), workflowAssignment.getProcessId());
         if(form == null) {
             LogUtil.warn(getClassName(), "Form [" + getPropertyString("formDefId") + "] not found");
             return null;
