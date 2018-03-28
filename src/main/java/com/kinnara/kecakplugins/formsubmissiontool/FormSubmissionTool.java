@@ -8,6 +8,7 @@ import org.joget.apps.app.service.AppService;
 import org.joget.apps.app.service.AppUtil;
 import org.joget.apps.form.model.Form;
 import org.joget.apps.form.model.FormData;
+import org.joget.apps.form.model.FormRow;
 import org.joget.apps.form.service.FormService;
 import org.joget.commons.util.LogUtil;
 import org.joget.plugin.base.DefaultApplicationPlugin;
@@ -17,9 +18,9 @@ import org.joget.workflow.model.service.WorkflowManager;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 public class FormSubmissionTool extends DefaultApplicationPlugin {
     @Nonnull private Map<String, Form> formCache = new HashMap<String, Form>();
@@ -43,27 +44,36 @@ public class FormSubmissionTool extends DefaultApplicationPlugin {
     public Object execute(Map map) {
         AppService appService = (AppService) AppUtil.getApplicationContext().getBean("appService");
         WorkflowAssignment workflowAssignment = (WorkflowAssignment) map.get("workflowAssignment");
-        Form form = generateForm(map.get("formDefId").toString(), workflowAssignment.getProcessId());
+        String formDefId = map.get("formDefId").toString();
+        Form form = generateForm(formDefId, workflowAssignment.getProcessId());
         if(form == null) {
             LogUtil.warn(getClassName(), "Form [" + getPropertyString("formDefId") + "] not found");
             return null;
         }
 
-        FormData formData = Arrays.stream((Object[]) map.get("fieldValues"))
+        final FormData formData = Arrays.stream((Object[]) map.get("fieldValues"))
                 .map(o -> (Map<String, Object>)o)
-                .peek(m -> LogUtil.info(getClassName(), "saving data ["+ m.get("field")+"] ["+m.get("value").toString()+"]"))
                 .collect(
                         FormData::new,
                         (fd, m) -> fd.addRequestParameterValues(String.valueOf(m.get("field")), new String[] {String.valueOf(m.get("value"))}),
                         (fd1, fd2) -> fd1.getRequestParams().putAll(fd2.getRequestParams()));
         formData.setPrimaryKeyValue(String.valueOf(map.get("primaryKey")));
 
-        // SUBMIT
-        formData = appService.submitForm(form, formData, false);
+        // load previous data
+        appService.loadFormData(form, formData.getPrimaryKeyValue())
+                .stream()
+                .map(FormRow::entrySet)
+                .flatMap(Collection::stream)
+                .filter(e -> e.getKey() != null && !e.getKey().toString().isEmpty() && e.getValue() != null && !e.getValue().toString().isEmpty())
+                .filter(e -> !formData.getRequestParams().containsKey(e.getKey().toString()))
+                .forEach(e -> formData.addRequestParameterValues(e.getKey().toString(), new String[] {e.getValue().toString()}));
+
+        // submit form
+        appService.submitForm(form, formData, false);
         WorkflowManager workflowManager = (WorkflowManager) AppUtil.getApplicationContext().getBean("workflowManager");
 
         if (!formData.getFormErrors().isEmpty()) {
-            formData.getFormErrors().forEach((key, value) -> LogUtil.warn(getClassName(), "Validation Error [" + key + "] [" + value + "]"));
+            formData.getFormErrors().forEach((key, value) -> LogUtil.warn(getClassName(), "Validation Error : form [" + formDefId + "] field [" + key + "] [" + value + "]"));
             workflowManager.processVariable(workflowAssignment.getProcessId(), map.get("wfVariableResultPrimaryKey").toString(), "");
         } else {
             workflowManager.processVariable(workflowAssignment.getProcessId(), map.get("wfVariableResultPrimaryKey").toString(), formData.getPrimaryKeyValue());
