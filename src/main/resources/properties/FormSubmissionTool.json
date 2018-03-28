@@ -20,29 +20,21 @@
         type : 'grid',
         columns : [
           {
-            name : 'field',
-            label : '@@formSubmissionTool.field@@'
+            key : 'field',
+            label : '@@formSubmissionTool.field@@',
+            required : 'true'
           },
           {
-            name : 'value',
+            key : 'value',
             label : '@@formSubmissionTool.value@@'
           }
         ]
       },
       {
-        name : 'workflowVariables',
-        label : '@@formSubmissionTool.workflowVariables@@',
-        type : 'grid',
-        columns : [
-          {
-            name : 'field',
-            label : '@@formSubmissionTool.field@@'
-          },
-          {
-            name : 'value',
-            label : '@@formSubmissionTool.value@@'
-          }
-        ]
+        name : 'wfVariableResultPrimaryKey',
+        label : '@@formSubmissionTool.wfVariableResultPrimaryKey@@',
+        type : 'textfield',
+        description : '@@formSubmissionTool.wfVariableResultPrimaryKey.desc@@'
       }
     ]
   }

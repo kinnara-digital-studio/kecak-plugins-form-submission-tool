@@ -51,23 +51,22 @@ public class FormSubmissionTool extends DefaultApplicationPlugin {
 
         FormData formData = Arrays.stream((Object[]) map.get("fieldValues"))
                 .map(o -> (Map<String, Object>)o)
-                .flatMap(m -> m.entrySet().stream())
+                .peek(m -> LogUtil.info(getClassName(), "saving data ["+ m.get("field")+"] ["+m.get("value").toString()+"]"))
                 .collect(
                         FormData::new,
-                        (fd, e) -> fd.addRequestParameterValues(e.getKey(), new String[] {String.valueOf(e.getValue())}),
+                        (fd, m) -> fd.addRequestParameterValues(String.valueOf(m.get("field")), new String[] {String.valueOf(m.get("value"))}),
                         (fd1, fd2) -> fd1.getRequestParams().putAll(fd2.getRequestParams()));
         formData.setPrimaryKeyValue(String.valueOf(map.get("primaryKey")));
 
-        Map<String, String> workflowVariableMap = Arrays.stream((Object[]) map.get("workflowVariables"))
-                .map(o -> (Map<String, Object>)o)
-                .flatMap(m -> m.entrySet().stream())
-                .collect(Collectors.toMap(Object::toString, Object::toString));
-
         // SUBMIT
         formData = appService.submitForm(form, formData, false);
+        WorkflowManager workflowManager = (WorkflowManager) AppUtil.getApplicationContext().getBean("workflowManager");
 
         if (!formData.getFormErrors().isEmpty()) {
             formData.getFormErrors().forEach((key, value) -> LogUtil.warn(getClassName(), "Validation Error [" + key + "] [" + value + "]"));
+            workflowManager.processVariable(workflowAssignment.getProcessId(), map.get("wfVariableResultPrimaryKey").toString(), "");
+        } else {
+            workflowManager.processVariable(workflowAssignment.getProcessId(), map.get("wfVariableResultPrimaryKey").toString(), formData.getPrimaryKeyValue());
         }
 
         return null;
