@@ -1,0 +1,19 @@
+[
+  {
+    title : '@@workflowFormLoadBinder.title@@',
+    properties : [
+      {
+        name : 'formDefId',
+        label : '@@workflowFormLoadBinder.formDefId@@',
+        type : 'selectbox',
+        required : 'true',
+        options_ajax : '[CONTEXT_PATH]/web/json/console/app[APP_PATH]/forms/options'
+      },
+      {
+        name : 'primaryKey',
+        label : '@@workflowFormLoadBinder.primaryKey@@',
+        type : 'textfield'
+      }
+    ]
+  }
+]

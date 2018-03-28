@@ -14,6 +14,7 @@ public class Activator implements BundleActivator {
         registrationList = new ArrayList<ServiceRegistration>();
 
         //Register plugin here
+        registrationList.add(context.registerService(WorkflowFormLoadBinder.class.getName(), new WorkflowFormLoadBinder(), null));
         registrationList.add(context.registerService(FormSubmissionTool.class.getName(), new FormSubmissionTool(), null));
     }
 
