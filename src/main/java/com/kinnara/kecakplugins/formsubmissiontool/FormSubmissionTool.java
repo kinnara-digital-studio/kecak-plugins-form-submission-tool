@@ -1,6 +1,7 @@
 package com.kinnara.kecakplugins.formsubmissiontool;
 
 import org.joget.apps.app.service.AppPluginUtil;
+import org.joget.apps.app.service.AppService;
 import org.joget.apps.app.service.AppUtil;
 import org.joget.apps.form.model.Form;
 import org.joget.apps.form.model.FormData;
@@ -59,7 +60,7 @@ public class FormSubmissionTool extends DefaultApplicationPlugin {
 
         PluginManager pluginManager = (PluginManager) AppUtil.getApplicationContext().getBean("pluginManager");
         Map<String, Object> propertyLoadBinder = (Map<String, Object>)map.get("loadBinder");
-        Plugin pluginLoadBinder = pluginManager.getPlugin(propertyLoadBinder.get(FormUtil.PROPERTY_CLASS_NAME).toString());
+        Plugin pluginLoadBinder = pluginManager.getPlugin(String.valueOf(propertyLoadBinder.get(FormUtil.PROPERTY_CLASS_NAME)));
         if(!propertyLoadBinder.isEmpty() && pluginLoadBinder != null) {
             try {
                 ((PropertyEditable)pluginLoadBinder).setProperties((Map<String, Object>) propertyLoadBinder.get(FormUtil.PROPERTY_PROPERTIES));
@@ -70,18 +71,26 @@ public class FormSubmissionTool extends DefaultApplicationPlugin {
         }
 
         // load previous data
-        FormService formService = (FormService) AppUtil.getApplicationContext().getBean("formService");
-        formService.executeFormLoadBinders(form, loadingFormData).getLoadBinderData(form)
-                .stream()
-                .map(FormRow::entrySet)
-                .flatMap(Collection::stream)
-                .filter(e -> e.getKey() != null && !e.getKey().toString().isEmpty() && e.getValue() != null && !e.getValue().toString().isEmpty())
-                .filter(e -> !FormUtil.PROPERTY_ID.equalsIgnoreCase(e.getKey().toString()) && !FormUtil.PROPERTY_DATE_CREATED.equalsIgnoreCase(e.getKey().toString()) && !FormUtil.PROPERTY_CREATED_BY.equalsIgnoreCase(e.getKey().toString()))
-                .filter(e -> !storingFormData.getRequestParams().containsKey(e.getKey().toString()))
-                .forEach(e -> storingFormData.addRequestParameterValues(e.getKey().toString(), new String[] {e.getValue().toString()}));
+        {
+            FormService formService = (FormService) AppUtil.getApplicationContext().getBean("formService");
+            formService.executeFormLoadBinders(form, loadingFormData).getLoadBinderData(form)
+                    .stream()
+                    .map(FormRow::entrySet)
+                    .flatMap(Collection::stream)
+                    .filter(e -> e.getKey() != null && !e.getKey().toString().isEmpty() && e.getValue() != null && !e.getValue().toString().isEmpty())
+                    .filter(e -> !FormUtil.PROPERTY_ID.equalsIgnoreCase(e.getKey().toString()) && !FormUtil.PROPERTY_DATE_CREATED.equalsIgnoreCase(e.getKey().toString()) && !FormUtil.PROPERTY_CREATED_BY.equalsIgnoreCase(e.getKey().toString()))
+                    .filter(e -> !storingFormData.getRequestParams().containsKey(e.getKey().toString()))
+                    .forEach(e -> storingFormData.addRequestParameterValues(e.getKey().toString(), new String[]{e.getValue().toString()}));
+
+//            formService.submitForm(form, storingFormData, false);
+        }
 
         // submit form
-        formService.submitForm(form, storingFormData, false);
+        {
+            AppService appService = (AppService) AppUtil.getApplicationContext().getBean("appService");
+            appService.submitForm(form, storingFormData, false);
+        }
+
         WorkflowManager workflowManager = (WorkflowManager) AppUtil.getApplicationContext().getBean("workflowManager");
 
         if (!storingFormData.getFormErrors().isEmpty()) {
