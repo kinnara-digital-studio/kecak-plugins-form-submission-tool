@@ -71,28 +71,25 @@ public class FormSubmissionTool extends DefaultApplicationPlugin {
             try {
                 ((PropertyEditable)pluginLoadBinder).setProperties((Map<String, Object>) propertyLoadBinder.get(FormUtil.PROPERTY_PROPERTIES));
                 form.setLoadBinder((FormLoadBinder) pluginLoadBinder);
+
+                // load previous data
+                FormService formService = (FormService) AppUtil.getApplicationContext().getBean("formService");
+                formService.executeFormLoadBinders(form, loadingFormData).getLoadBinderData(form)
+                        .stream()
+                        .map(FormRow::entrySet)
+                        .flatMap(Collection::stream)
+                        .filter(e -> e.getKey() != null && !e.getKey().toString().isEmpty() && e.getValue() != null && !e.getValue().toString().isEmpty())
+                        .filter(e -> !FormUtil.PROPERTY_ID.equalsIgnoreCase(e.getKey().toString()) && !FormUtil.PROPERTY_DATE_CREATED.equalsIgnoreCase(e.getKey().toString()) && !FormUtil.PROPERTY_CREATED_BY.equalsIgnoreCase(e.getKey().toString()))
+                        .filter(e -> !storingFormData.getRequestParams().containsKey(e.getKey().toString()))
+                        .forEach(e -> storingFormData.addRequestParameterValues(e.getKey().toString(), new String[]{e.getValue().toString()}));
             } catch (Exception e) {
                 LogUtil.error(getClassName(), e, "Error configuring load binder");
             }
         }
 
-        // load previous data
-        {
-            FormService formService = (FormService) AppUtil.getApplicationContext().getBean("formService");
-            formService.executeFormLoadBinders(form, loadingFormData).getLoadBinderData(form)
-                    .stream()
-                    .map(FormRow::entrySet)
-                    .flatMap(Collection::stream)
-                    .filter(e -> e.getKey() != null && !e.getKey().toString().isEmpty() && e.getValue() != null && !e.getValue().toString().isEmpty())
-                    .filter(e -> !FormUtil.PROPERTY_ID.equalsIgnoreCase(e.getKey().toString()) && !FormUtil.PROPERTY_DATE_CREATED.equalsIgnoreCase(e.getKey().toString()) && !FormUtil.PROPERTY_CREATED_BY.equalsIgnoreCase(e.getKey().toString()))
-                    .filter(e -> !storingFormData.getRequestParams().containsKey(e.getKey().toString()))
-                    .forEach(e -> storingFormData.addRequestParameterValues(e.getKey().toString(), new String[]{e.getValue().toString()}));
-
-//            formService.submitForm(form, storingFormData, false);
-        }
-
         // submit form
         {
+//            storingFormData.getRequestParams().entrySet().stream().peek(e -> LogUtil.info(getClassName(), "key ["+e.getKey()+"]")).flatMap(v -> Arrays.stream(v.getValue())).forEach(v -> LogUtil.info(getClassName(), "value ["+v+"]"));
             AppService appService = (AppService) AppUtil.getApplicationContext().getBean("appService");
             appService.submitForm(form, storingFormData, false);
         }

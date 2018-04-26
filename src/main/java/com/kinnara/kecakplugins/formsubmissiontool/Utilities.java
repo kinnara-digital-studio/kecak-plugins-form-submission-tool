@@ -1,5 +1,6 @@
 package com.kinnara.kecakplugins.formsubmissiontool;
 
+import org.bouncycastle.crypto.Digest;
 import org.joget.apps.app.dao.FormDefinitionDao;
 import org.joget.apps.app.model.AppDefinition;
 import org.joget.apps.app.model.FormDefinition;
@@ -38,8 +39,8 @@ public class Utilities {
     @Nullable
     public static Form generateForm(@Nonnull String formDefId, @Nonnull String processId, @Nonnull Map<String, Form> formCache) {
         // check in cache
-        if(formCache.containsKey(formDefId))
-            return formCache.get(formDefId);
+//        if(formCache.containsKey(formDefId))
+//            return formCache.get(formDefId);
 
         // proceed without cache
         FormService formService = (FormService) AppUtil.getApplicationContext().getBean("formService");
@@ -57,10 +58,11 @@ public class Utilities {
                     WorkflowAssignment wfAssignment = wm.getAssignmentByProcess(processId);
                     json = AppUtil.processHashVariable(json, wfAssignment, "json", null);
                 }
+
                 form = (Form)formService.createElementFromJson(json);
 
                 // put in cache if possible
-                formCache.put(formDefId, form);
+//                formCache.put(formDefId, form);
 
                 return form;
             }
