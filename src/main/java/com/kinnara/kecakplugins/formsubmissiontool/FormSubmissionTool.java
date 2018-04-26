@@ -47,16 +47,22 @@ public class FormSubmissionTool extends DefaultApplicationPlugin {
             return null;
         }
 
+        String primaryKey = String.valueOf(map.get("primaryKey")).replaceAll("#.+#", ""); // cleanup hash variables
+        if(primaryKey.isEmpty()) {
+            LogUtil.info(getClassName(), "Primary Key is not specified, use process id [" + workflowAssignment.getProcessId() + "] as key");
+            primaryKey = workflowAssignment.getProcessId();
+        }
+
         final FormData storingFormData = Arrays.stream((Object[]) map.get("fieldValues"))
                 .map(o -> (Map<String, Object>)o)
                 .collect(
                         FormData::new,
                         (fd, m) -> fd.addRequestParameterValues(String.valueOf(m.get("field")), new String[] {String.valueOf(m.get("value"))}),
                         (fd1, fd2) -> fd1.getRequestParams().putAll(fd2.getRequestParams()));
-        storingFormData.setPrimaryKeyValue(String.valueOf(map.get("primaryKey")));
+        storingFormData.setPrimaryKeyValue(primaryKey);
 
         FormData loadingFormData = new FormData();
-        loadingFormData.setPrimaryKeyValue(String.valueOf(map.get("primaryKey")));
+        loadingFormData.setPrimaryKeyValue(primaryKey);
 
         PluginManager pluginManager = (PluginManager) AppUtil.getApplicationContext().getBean("pluginManager");
         Map<String, Object> propertyLoadBinder = (Map<String, Object>)map.get("loadBinder");

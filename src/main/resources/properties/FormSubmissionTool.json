@@ -12,7 +12,8 @@
       {
         name : 'primaryKey',
         label : '@@formSubmissionTool.primaryKey@@',
-        type : 'textfield'
+        type : 'textfield',
+        description : '@@formSubmissionTool.primaryKey.desc@@'
       },
       {
         name : 'fieldValues',
