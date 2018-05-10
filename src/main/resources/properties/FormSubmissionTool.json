@@ -38,7 +38,9 @@
         description : '@@formSubmissionTool.wfVariableResultPrimaryKey.desc@@'
       }
     ]
-  },
+  }
+  /*
+  ,
   {
     title : '@@formSubmissionTool.customLoadBinder@@',
     properties : [
@@ -51,4 +53,5 @@
       }
     ]
   }
+  */
 ]
