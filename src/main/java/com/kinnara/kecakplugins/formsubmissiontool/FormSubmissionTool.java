@@ -54,8 +54,6 @@ public class FormSubmissionTool extends DefaultApplicationPlugin {
             primaryKey = workflowAssignment.getProcessId();
         }
 
-        final FormRowSet rowSet = appService.loadFormData(form, primaryKey);
-
         final FormData storingFormData = Arrays.stream((Object[]) map.get("fieldValues"))
                 .map(o -> (Map<String, Object>)o)
                 .collect(
@@ -84,8 +82,14 @@ public class FormSubmissionTool extends DefaultApplicationPlugin {
                         .map(FormRow::entrySet)
                         .flatMap(Collection::stream)
                         .filter(e -> e.getKey() != null && !e.getKey().toString().isEmpty() && e.getValue() != null && !e.getValue().toString().isEmpty())
+
+                        // ignore built-in field
                         .filter(e -> !FormUtil.PROPERTY_ID.equalsIgnoreCase(e.getKey().toString()) && !FormUtil.PROPERTY_DATE_CREATED.equalsIgnoreCase(e.getKey().toString()) && !FormUtil.PROPERTY_CREATED_BY.equalsIgnoreCase(e.getKey().toString()))
+
+                        // get field which in not in fieldValues
                         .filter(e -> !storingFormData.getRequestParams().containsKey(e.getKey().toString()))
+
+                        // apply data from load binder
                         .forEach(e -> storingFormData.addRequestParameterValues(e.getKey().toString(), new String[]{e.getValue().toString()}));
             } catch (Exception e) {
                 LogUtil.error(getClassName(), e, "Error configuring load binder ["+propertyLoadBinder.get(FormUtil.PROPERTY_CLASS_NAME)+"]");
@@ -100,6 +104,10 @@ public class FormSubmissionTool extends DefaultApplicationPlugin {
                     .filter(e -> !storingFormData.getRequestParams().containsKey(e.getKey().toString()))
                     .forEach(e -> storingFormData.addRequestParameterValues(e.getKey().toString(), new String[]{e.getValue().toString()}));
         }
+
+        // fill assignment information
+        storingFormData.setActivityId(workflowAssignment.getActivityId());
+        storingFormData.setProcessId(workflowAssignment.getProcessId());
 
         // submit form
         appService.submitForm(form, storingFormData, false);
