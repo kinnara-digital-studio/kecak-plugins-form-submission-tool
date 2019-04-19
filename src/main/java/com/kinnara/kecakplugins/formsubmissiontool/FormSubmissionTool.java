@@ -68,6 +68,7 @@ public class FormSubmissionTool extends DefaultApplicationPlugin {
         storingFormData.setProcessId(workflowAssignment.getProcessId());
 
         // filter sections by permissions
+        // IMPORTANT !!!!! section removing does not work for subform
         form.getChildren().removeIf(element -> {
             Section section = (Section) element;
             UserviewPermission permission = Utilities.getPermissionObject(section, storingFormData);
