@@ -6,6 +6,7 @@ import org.joget.apps.app.service.AppUtil;
 import org.joget.apps.form.model.*;
 import org.joget.apps.form.service.FormService;
 import org.joget.apps.form.service.FormUtil;
+import org.joget.apps.userview.model.UserviewPermission;
 import org.joget.commons.util.LogUtil;
 import org.joget.plugin.base.DefaultApplicationPlugin;
 import org.joget.plugin.base.Plugin;
@@ -40,8 +41,10 @@ public class FormSubmissionTool extends DefaultApplicationPlugin {
         AppService appService = (AppService) AppUtil.getApplicationContext().getBean("appService");
         FormService formService = (FormService) AppUtil.getApplicationContext().getBean("formService");
         PluginManager pluginManager = (PluginManager) AppUtil.getApplicationContext().getBean("pluginManager");
+        WorkflowManager workflowManager= (WorkflowManager) AppUtil.getApplicationContext().getBean("workflowManager");
 
         String formDefId = map.get("formDefId").toString();
+
         Form form = Utilities.generateForm(formDefId, workflowAssignment.getProcessId());
         if(form == null) {
             LogUtil.warn(getClassName(), "Form [" + formDefId + "] not found");
@@ -61,6 +64,15 @@ public class FormSubmissionTool extends DefaultApplicationPlugin {
                         (fd, m) -> fd.addRequestParameterValues(String.valueOf(m.get("field")), new String[] {String.valueOf(m.get("value"))}),
                         (fd1, fd2) -> fd1.getRequestParams().putAll(fd2.getRequestParams()));
         storingFormData.setPrimaryKeyValue(primaryKey);
+        storingFormData.setActivityId(workflowAssignment.getActivityId());
+        storingFormData.setProcessId(workflowAssignment.getProcessId());
+
+        // filter sections by permissions
+        form.getChildren().removeIf(element -> {
+            Section section = (Section) element;
+            UserviewPermission permission = Utilities.getPermissionObject(section, storingFormData);
+            return permission != null && !permission.isAuthorize();
+        });
 
         FormData loadingFormData = new FormData();
         loadingFormData.setPrimaryKeyValue(primaryKey);
@@ -111,8 +123,6 @@ public class FormSubmissionTool extends DefaultApplicationPlugin {
 
         // submit form
         appService.submitForm(form, storingFormData, false);
-
-        WorkflowManager workflowManager = (WorkflowManager) AppUtil.getApplicationContext().getBean("workflowManager");
 
         String wfVariableResultPrimaryKey = map.get("wfVariableResultPrimaryKey").toString();
         if (!storingFormData.getFormErrors().isEmpty()) {
