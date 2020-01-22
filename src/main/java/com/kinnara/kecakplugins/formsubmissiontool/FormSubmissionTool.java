@@ -15,6 +15,7 @@ import org.joget.plugin.base.PluginManager;
 import org.joget.plugin.property.model.PropertyEditable;
 import org.joget.workflow.model.WorkflowAssignment;
 import org.joget.workflow.model.service.WorkflowManager;
+import org.springframework.context.ApplicationContext;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -39,11 +40,12 @@ public class FormSubmissionTool extends DefaultApplicationPlugin {
 
     @Override
     public Object execute(Map map) {
+        ApplicationContext applicationContext = AppUtil.getApplicationContext();
         WorkflowAssignment workflowAssignment = (WorkflowAssignment) map.get("workflowAssignment");
-        AppService appService = (AppService) AppUtil.getApplicationContext().getBean("appService");
-        FormService formService = (FormService) AppUtil.getApplicationContext().getBean("formService");
-        PluginManager pluginManager = (PluginManager) AppUtil.getApplicationContext().getBean("pluginManager");
-        WorkflowManager workflowManager= (WorkflowManager) AppUtil.getApplicationContext().getBean("workflowManager");
+        AppService appService = (AppService) applicationContext.getBean("appService");
+        FormService formService = (FormService) applicationContext.getBean("formService");
+        PluginManager pluginManager = (PluginManager) applicationContext.getBean("pluginManager");
+        WorkflowManager workflowManager= (WorkflowManager) applicationContext.getBean("workflowManager");
         AppDefinition appDefinition = (AppDefinition) map.get("appDef");
         String recordId = (String) map.get("recordId");
 
