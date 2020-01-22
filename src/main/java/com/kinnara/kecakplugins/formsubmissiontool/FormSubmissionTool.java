@@ -1,5 +1,6 @@
 package com.kinnara.kecakplugins.formsubmissiontool;
 
+import org.joget.apps.app.model.AppDefinition;
 import org.joget.apps.app.service.AppPluginUtil;
 import org.joget.apps.app.service.AppService;
 import org.joget.apps.app.service.AppUtil;
@@ -18,6 +19,7 @@ import org.joget.workflow.model.service.WorkflowManager;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Optional;
 
 public class FormSubmissionTool extends DefaultApplicationPlugin {
     @Override
@@ -42,10 +44,18 @@ public class FormSubmissionTool extends DefaultApplicationPlugin {
         FormService formService = (FormService) AppUtil.getApplicationContext().getBean("formService");
         PluginManager pluginManager = (PluginManager) AppUtil.getApplicationContext().getBean("pluginManager");
         WorkflowManager workflowManager= (WorkflowManager) AppUtil.getApplicationContext().getBean("workflowManager");
+        AppDefinition appDefinition = (AppDefinition) map.get("appDef");
+        String recordId = (String) map.get("recordId");
 
         String formDefId = map.get("formDefId").toString();
+        FormData formData = new FormData();
+        if(workflowAssignment != null) {
+            formData.setProcessId(workflowAssignment.getProcessId());
+            formData.setActivityId(workflowAssignment.getActivityId());
+        }
 
-        Form form = Utilities.generateForm(formDefId, workflowAssignment.getProcessId());
+        Form form = appService.viewDataForm(appDefinition.getAppId(), appDefinition.getVersion().toString(), formDefId, null, null, null, formData, null, null);
+//        Form form = Utilities.generateForm(formDefId, workflowAssignment.getProcessId());
         if(form == null) {
             LogUtil.warn(getClassName(), "Form [" + formDefId + "] not found");
             return null;
@@ -53,8 +63,12 @@ public class FormSubmissionTool extends DefaultApplicationPlugin {
 
         String primaryKey = String.valueOf(map.get("primaryKey")).replaceAll("#.+#", ""); // cleanup hash variables
         if(primaryKey.isEmpty()) {
-            LogUtil.info(getClassName(), "Primary Key is not specified, use process id [" + workflowAssignment.getProcessId() + "] as key");
-            primaryKey = workflowAssignment.getProcessId();
+            primaryKey = Optional.ofNullable(recordId)
+                    .orElse(Optional.ofNullable(workflowAssignment)
+                            .map(WorkflowAssignment::getProcessId)
+                            .map(appService::getOriginProcessId)
+                            .orElse(""));
+            LogUtil.info(getClassName(),"Primary key is not set in the properties, using value [" + primaryKey + "] as key");
         }
 
         final FormData storingFormData = Arrays.stream((Object[]) map.get("fieldValues"))
@@ -69,11 +83,11 @@ public class FormSubmissionTool extends DefaultApplicationPlugin {
 
         // filter sections by permissions
         // IMPORTANT !!!!! section removing does not work for subform
-        form.getChildren().removeIf(element -> {
-            Section section = (Section) element;
-            UserviewPermission permission = Utilities.getPermissionObject(section, storingFormData);
-            return permission != null && !permission.isAuthorize();
-        });
+//        form.getChildren().removeIf(element -> {
+//            Section section = (Section) element;
+//            UserviewPermission permission = Utilities.getPermissionObject(section, storingFormData);
+//            return permission != null && !permission.isAuthorize();
+//        });
 
         FormData loadingFormData = new FormData();
         loadingFormData.setPrimaryKeyValue(primaryKey);
