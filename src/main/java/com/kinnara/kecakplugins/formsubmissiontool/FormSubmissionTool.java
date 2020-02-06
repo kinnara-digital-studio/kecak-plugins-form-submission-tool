@@ -17,10 +17,7 @@ import org.joget.workflow.model.WorkflowAssignment;
 import org.joget.workflow.model.service.WorkflowManager;
 import org.springframework.context.ApplicationContext;
 
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 public class FormSubmissionTool extends DefaultApplicationPlugin {
     @Override
@@ -47,7 +44,6 @@ public class FormSubmissionTool extends DefaultApplicationPlugin {
         PluginManager pluginManager = (PluginManager) applicationContext.getBean("pluginManager");
         WorkflowManager workflowManager= (WorkflowManager) applicationContext.getBean("workflowManager");
         AppDefinition appDefinition = (AppDefinition) map.get("appDef");
-        String recordId = (String) map.get("recordId");
 
         String formDefId = map.get("formDefId").toString();
         FormData loadingFormData = new FormData();
@@ -57,21 +53,22 @@ public class FormSubmissionTool extends DefaultApplicationPlugin {
         }
 
         Form form = appService.viewDataForm(appDefinition.getAppId(), appDefinition.getVersion().toString(), formDefId, null, null, null, loadingFormData, null, null);
-//        Form form = Utilities.generateForm(formDefId, workflowAssignment.getProcessId());
         if(form == null) {
             LogUtil.warn(getClassName(), "Form [" + formDefId + "] not found");
             return null;
         }
 
-        String primaryKey = String.valueOf(map.get("primaryKey")).replaceAll("#.+#", ""); // cleanup hash variables
-        if(primaryKey.isEmpty()) {
-            primaryKey = Optional.ofNullable(recordId)
-                    .orElse(Optional.ofNullable(workflowAssignment)
-                            .map(WorkflowAssignment::getProcessId)
-                            .map(appService::getOriginProcessId)
-                            .orElse(""));
-            LogUtil.info(getClassName(),"Primary key is not set in the properties, using value [" + primaryKey + "] as key");
-        }
+        String primaryKey = Optional.ofNullable(map.get("primaryKey"))
+                .map(String::valueOf)
+                .map(s -> s.replaceAll("#.+#", ""))
+                .filter(s -> !s.isEmpty())
+                .orElse(Optional.ofNullable(map.get("recordId"))
+                        .map(String::valueOf)
+                        .filter(s -> !s.isEmpty())
+                        .orElse(Optional.ofNullable(workflowAssignment)
+                                .map(WorkflowAssignment::getProcessId)
+                                .map(appService::getOriginProcessId)
+                                .orElse("")));
 
         final FormData storingFormData = Arrays.stream((Object[]) map.get("fieldValues"))
                 .map(o -> (Map<String, Object>)o)
