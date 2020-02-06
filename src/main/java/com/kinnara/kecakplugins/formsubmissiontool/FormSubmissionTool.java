@@ -50,13 +50,13 @@ public class FormSubmissionTool extends DefaultApplicationPlugin {
         String recordId = (String) map.get("recordId");
 
         String formDefId = map.get("formDefId").toString();
-        FormData formData = new FormData();
+        FormData loadingFormData = new FormData();
         if(workflowAssignment != null) {
-            formData.setProcessId(workflowAssignment.getProcessId());
-            formData.setActivityId(workflowAssignment.getActivityId());
+            loadingFormData.setProcessId(workflowAssignment.getProcessId());
+            loadingFormData.setActivityId(workflowAssignment.getActivityId());
         }
 
-        Form form = appService.viewDataForm(appDefinition.getAppId(), appDefinition.getVersion().toString(), formDefId, null, null, null, formData, null, null);
+        Form form = appService.viewDataForm(appDefinition.getAppId(), appDefinition.getVersion().toString(), formDefId, null, null, null, loadingFormData, null, null);
 //        Form form = Utilities.generateForm(formDefId, workflowAssignment.getProcessId());
         if(form == null) {
             LogUtil.warn(getClassName(), "Form [" + formDefId + "] not found");
@@ -79,9 +79,12 @@ public class FormSubmissionTool extends DefaultApplicationPlugin {
                         FormData::new,
                         (fd, m) -> fd.addRequestParameterValues(String.valueOf(m.get("field")), new String[] {String.valueOf(m.get("value"))}),
                         (fd1, fd2) -> fd1.getRequestParams().putAll(fd2.getRequestParams()));
+
         storingFormData.setPrimaryKeyValue(primaryKey);
-        storingFormData.setActivityId(workflowAssignment.getActivityId());
-        storingFormData.setProcessId(workflowAssignment.getProcessId());
+        if(workflowAssignment != null) {
+            storingFormData.setActivityId(workflowAssignment.getActivityId());
+            storingFormData.setProcessId(workflowAssignment.getProcessId());
+        }
 
         // filter sections by permissions
         // IMPORTANT !!!!! section removing does not work for subform
@@ -90,9 +93,6 @@ public class FormSubmissionTool extends DefaultApplicationPlugin {
 //            UserviewPermission permission = Utilities.getPermissionObject(section, storingFormData);
 //            return permission != null && !permission.isAuthorize();
 //        });
-
-        FormData loadingFormData = new FormData();
-        loadingFormData.setPrimaryKeyValue(primaryKey);
 
         Map<String, Object> propertyLoadBinder;
         Plugin pluginLoadBinder;
