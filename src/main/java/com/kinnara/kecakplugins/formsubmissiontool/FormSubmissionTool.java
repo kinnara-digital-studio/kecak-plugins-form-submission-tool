@@ -4,10 +4,12 @@ import org.joget.apps.app.model.AppDefinition;
 import org.joget.apps.app.service.AppPluginUtil;
 import org.joget.apps.app.service.AppService;
 import org.joget.apps.app.service.AppUtil;
-import org.joget.apps.form.model.*;
+import org.joget.apps.form.model.Form;
+import org.joget.apps.form.model.FormData;
+import org.joget.apps.form.model.FormLoadBinder;
+import org.joget.apps.form.model.FormRow;
 import org.joget.apps.form.service.FormService;
 import org.joget.apps.form.service.FormUtil;
-import org.joget.apps.userview.model.UserviewPermission;
 import org.joget.commons.util.LogUtil;
 import org.joget.plugin.base.DefaultApplicationPlugin;
 import org.joget.plugin.base.Plugin;
@@ -17,7 +19,11 @@ import org.joget.workflow.model.WorkflowAssignment;
 import org.joget.workflow.model.service.WorkflowManager;
 import org.springframework.context.ApplicationContext;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Stream;
 
 public class FormSubmissionTool extends DefaultApplicationPlugin {
     @Override
@@ -107,7 +113,7 @@ public class FormSubmissionTool extends DefaultApplicationPlugin {
                         .stream()
                         .map(FormRow::entrySet)
                         .flatMap(Collection::stream)
-                        .filter(e -> e.getKey() != null && !e.getKey().toString().isEmpty() && e.getValue() != null && !e.getValue().toString().isEmpty())
+                        .filter(e -> isNotNullOrEmpty(e.getKey()) && isNotNullOrEmpty(e.getValue()))
 
                         // ignore built-in field
                         .filter(e -> !FormUtil.PROPERTY_ID.equalsIgnoreCase(e.getKey().toString()) && !FormUtil.PROPERTY_DATE_CREATED.equalsIgnoreCase(e.getKey().toString()) && !FormUtil.PROPERTY_CREATED_BY.equalsIgnoreCase(e.getKey().toString()))
@@ -121,11 +127,13 @@ public class FormSubmissionTool extends DefaultApplicationPlugin {
                 LogUtil.error(getClassName(), e, "Error configuring load binder ["+propertyLoadBinder.get(FormUtil.PROPERTY_CLASS_NAME)+"]");
             }
         } else {
-            formService.executeFormLoadBinders(form, loadingFormData).getLoadBinderData(form)
-                    .stream()
+            Optional.ofNullable(formService.executeFormLoadBinders(form, loadingFormData))
+                    .map(fd -> fd.getLoadBinderData(form))
+                    .map(Collection::stream)
+                    .orElseGet(Stream::empty)
                     .map(FormRow::entrySet)
                     .flatMap(Collection::stream)
-                    .filter(e -> e.getKey() != null && !e.getKey().toString().isEmpty() && e.getValue() != null && !e.getValue().toString().isEmpty())
+                    .filter(e -> isNotNullOrEmpty(e.getKey()) && isNotNullOrEmpty(e.getValue()))
                     .filter(e -> !FormUtil.PROPERTY_ID.equalsIgnoreCase(e.getKey().toString()) && !FormUtil.PROPERTY_DATE_CREATED.equalsIgnoreCase(e.getKey().toString()) && !FormUtil.PROPERTY_CREATED_BY.equalsIgnoreCase(e.getKey().toString()))
                     .filter(e -> !storingFormData.getRequestParams().containsKey(e.getKey().toString()))
                     .forEach(e -> storingFormData.addRequestParameterValues(e.getKey().toString(), new String[]{e.getValue().toString()}));
@@ -164,5 +172,13 @@ public class FormSubmissionTool extends DefaultApplicationPlugin {
     @Override
     public String getPropertyOptions() {
         return AppUtil.readPluginResource(getClassName(), "/properties/FormSubmissionTool.json", null, false, "/messages/FormSubmissionTool");
+    }
+
+    private boolean isNullOrEmpty(Object value) {
+        return value == null || String.valueOf(value).isEmpty();
+    }
+
+    private boolean isNotNullOrEmpty(Object value) {
+        return !isNullOrEmpty(value);
     }
 }
