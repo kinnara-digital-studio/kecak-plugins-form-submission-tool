@@ -16,13 +16,17 @@ import org.joget.plugin.base.Plugin;
 import org.joget.plugin.base.PluginManager;
 import org.joget.plugin.property.model.PropertyEditable;
 import org.joget.workflow.model.WorkflowAssignment;
+import org.joget.workflow.model.WorkflowProcessLink;
+import org.joget.workflow.model.dao.WorkflowProcessLinkDao;
 import org.joget.workflow.model.service.WorkflowManager;
 import org.springframework.context.ApplicationContext;
 
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Map;
-import java.util.Optional;
+import javax.sql.DataSource;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.*;
 import java.util.stream.Stream;
 
 public class FormSubmissionTool extends DefaultApplicationPlugin {
@@ -50,6 +54,7 @@ public class FormSubmissionTool extends DefaultApplicationPlugin {
         PluginManager pluginManager = (PluginManager) applicationContext.getBean("pluginManager");
         WorkflowManager workflowManager= (WorkflowManager) applicationContext.getBean("workflowManager");
         AppDefinition appDefinition = (AppDefinition) map.get("appDef");
+        WorkflowProcessLinkDao workflowProcessLinkDao = (WorkflowProcessLinkDao) pluginManager.getBean("workflowProcessLinkDao");
 
         String formDefId = map.get("formDefId").toString();
         FormData loadingFormData = new FormData();
@@ -64,17 +69,20 @@ public class FormSubmissionTool extends DefaultApplicationPlugin {
             return null;
         }
 
-        String primaryKey = Optional.ofNullable(map.get("primaryKey"))
+        String primaryKey = Optional.of("primaryKey")
+                .map(map::get)
                 .map(String::valueOf)
                 .map(s -> s.replaceAll("#.+#", ""))
                 .filter(s -> !s.isEmpty())
-                .orElse(Optional.ofNullable(map.get("recordId"))
+                .orElseGet(() -> Optional.of("recordId")
+                        .map(map::get)
                         .map(String::valueOf)
                         .filter(s -> !s.isEmpty())
-                        .orElse(Optional.ofNullable(workflowAssignment)
+                        .orElseGet(() -> Optional.ofNullable(workflowAssignment)
                                 .map(WorkflowAssignment::getProcessId)
-                                .map(appService::getOriginProcessId)
-                                .orElse("")));
+                                .map(workflowManager::getWorkflowProcessLink)
+                                .map(WorkflowProcessLink::getOriginProcessId)
+                                .orElseGet(() -> UUID.randomUUID().toString())));
 
         final FormData storingFormData = Arrays.stream((Object[]) map.get("fieldValues"))
                 .map(o -> (Map<String, Object>)o)
@@ -180,5 +188,27 @@ public class FormSubmissionTool extends DefaultApplicationPlugin {
 
     private boolean isNotNullOrEmpty(Object value) {
         return !isNullOrEmpty(value);
+    }
+
+
+    private String getOriginProcessIdUsingSql(String processId) {
+        ApplicationContext applicationContext = AppUtil.getApplicationContext();
+        DataSource dataSource = (DataSource)AppUtil.getApplicationContext().getBean("setupDataSource");
+
+        String sql = "select originProcessId from wf_process_link where processId = ?";
+        try(Connection con = dataSource.getConnection();
+            PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, processId);
+
+            try(ResultSet rs = ps.executeQuery()) {
+                if(rs.next()) {
+                    return rs.getString(1);
+                }
+            }
+        } catch (SQLException throwables) {
+            throwables.printStackTrace();
+        }
+
+        return null;
     }
 }
