@@ -69,20 +69,33 @@ public class FormSubmissionTool extends DefaultApplicationPlugin {
             return null;
         }
 
+        // get primary key from property "primaryKey"
         String primaryKey = Optional.of("primaryKey")
                 .map(map::get)
                 .map(String::valueOf)
                 .map(s -> s.replaceAll("#.+#", ""))
                 .filter(s -> !s.isEmpty())
+
+                // or get from property "recordId"
                 .orElseGet(() -> Optional.of("recordId")
                         .map(map::get)
                         .map(String::valueOf)
                         .filter(s -> !s.isEmpty())
+
+                        // or get from workflow assignment, originProcessId
                         .orElseGet(() -> Optional.ofNullable(workflowAssignment)
                                 .map(WorkflowAssignment::getProcessId)
                                 .map(workflowManager::getWorkflowProcessLink)
                                 .map(WorkflowProcessLink::getOriginProcessId)
-                                .orElseGet(() -> UUID.randomUUID().toString())));
+                                .filter(s -> !s.isEmpty())
+
+                                // or get from workflow assignment's process ID
+                                .orElseGet(() -> Optional.ofNullable(workflowAssignment)
+                                        .map(WorkflowAssignment::getProcessId)
+                                        .filter(s -> !s.isEmpty())
+
+                                        // desperately use UUID
+                                        .orElseGet(() -> UUID.randomUUID().toString()))));
 
         final FormData storingFormData = Arrays.stream((Object[]) map.get("fieldValues"))
                 .map(o -> (Map<String, Object>)o)
@@ -92,10 +105,6 @@ public class FormSubmissionTool extends DefaultApplicationPlugin {
                         (fd1, fd2) -> fd1.getRequestParams().putAll(fd2.getRequestParams()));
 
         storingFormData.setPrimaryKeyValue(primaryKey);
-        if(workflowAssignment != null) {
-            storingFormData.setActivityId(workflowAssignment.getActivityId());
-            storingFormData.setProcessId(workflowAssignment.getProcessId());
-        }
 
         // filter sections by permissions
         // IMPORTANT !!!!! section removing does not work for subform
@@ -148,8 +157,10 @@ public class FormSubmissionTool extends DefaultApplicationPlugin {
         }
 
         // fill assignment information
-        storingFormData.setActivityId(workflowAssignment.getActivityId());
-        storingFormData.setProcessId(workflowAssignment.getProcessId());
+        if(workflowAssignment != null) {
+            storingFormData.setActivityId(workflowAssignment.getActivityId());
+            storingFormData.setProcessId(workflowAssignment.getProcessId());
+        }
 
         // submit form
         appService.submitForm(form, storingFormData, false);
