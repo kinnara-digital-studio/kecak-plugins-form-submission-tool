@@ -39,19 +39,4 @@
       }
     ]
   }
-  /*
-  ,
-  {
-    title : '@@formSubmissionTool.customLoadBinder@@',
-    properties : [
-      {
-        name: 'loadBinder',
-        label: '@@formSubmissionTool.loadBinder@@',
-        type: 'elementselect',
-        options_ajax: '[CONTEXT_PATH]/web/property/json/getElements?classname=org.joget.apps.form.model.FormLoadElementBinder',
-        url: '[CONTEXT_PATH]/web/property/json[APP_PATH]/getPropertyOptions'
-      }
-    ]
-  }
-  */
 ]

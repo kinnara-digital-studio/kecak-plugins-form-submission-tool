@@ -4,23 +4,22 @@ import org.joget.apps.app.model.AppDefinition;
 import org.joget.apps.app.service.AppPluginUtil;
 import org.joget.apps.app.service.AppService;
 import org.joget.apps.app.service.AppUtil;
+import org.joget.apps.form.model.Element;
 import org.joget.apps.form.model.Form;
 import org.joget.apps.form.model.FormData;
-import org.joget.apps.form.model.FormLoadBinder;
-import org.joget.apps.form.model.FormRow;
+import org.joget.apps.form.model.FormRowSet;
 import org.joget.apps.form.service.FormService;
 import org.joget.apps.form.service.FormUtil;
 import org.joget.commons.util.LogUtil;
 import org.joget.plugin.base.DefaultApplicationPlugin;
-import org.joget.plugin.base.Plugin;
 import org.joget.plugin.base.PluginManager;
-import org.joget.plugin.property.model.PropertyEditable;
 import org.joget.workflow.model.WorkflowAssignment;
 import org.joget.workflow.model.WorkflowProcessLink;
 import org.joget.workflow.model.dao.WorkflowProcessLinkDao;
 import org.joget.workflow.model.service.WorkflowManager;
 import org.springframework.context.ApplicationContext;
 
+import javax.annotation.Nonnull;
 import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -49,25 +48,11 @@ public class FormSubmissionTool extends DefaultApplicationPlugin {
     public Object execute(Map map) {
         ApplicationContext applicationContext = AppUtil.getApplicationContext();
         WorkflowAssignment workflowAssignment = (WorkflowAssignment) map.get("workflowAssignment");
-        AppService appService = (AppService) applicationContext.getBean("appService");
-        FormService formService = (FormService) applicationContext.getBean("formService");
         PluginManager pluginManager = (PluginManager) applicationContext.getBean("pluginManager");
         WorkflowManager workflowManager= (WorkflowManager) applicationContext.getBean("workflowManager");
         AppDefinition appDefinition = (AppDefinition) map.get("appDef");
-        WorkflowProcessLinkDao workflowProcessLinkDao = (WorkflowProcessLinkDao) pluginManager.getBean("workflowProcessLinkDao");
 
         String formDefId = map.get("formDefId").toString();
-        FormData loadingFormData = new FormData();
-        if(workflowAssignment != null) {
-            loadingFormData.setProcessId(workflowAssignment.getProcessId());
-            loadingFormData.setActivityId(workflowAssignment.getActivityId());
-        }
-
-        Form form = appService.viewDataForm(appDefinition.getAppId(), appDefinition.getVersion().toString(), formDefId, null, null, null, loadingFormData, null, null);
-        if(form == null) {
-            LogUtil.warn(getClassName(), "Form [" + formDefId + "] not found");
-            return null;
-        }
 
         // get primary key from property "primaryKey"
         String primaryKey = Optional.of("primaryKey")
@@ -97,82 +82,58 @@ public class FormSubmissionTool extends DefaultApplicationPlugin {
                                         // desperately use UUID
                                         .orElseGet(() -> UUID.randomUUID().toString()))));
 
-        final FormData storingFormData = Arrays.stream((Object[]) map.get("fieldValues"))
-                .map(o -> (Map<String, Object>)o)
-                .collect(
-                        FormData::new,
-                        (fd, m) -> fd.addRequestParameterValues(String.valueOf(m.get("field")), new String[] {String.valueOf(m.get("value"))}),
-                        (fd1, fd2) -> fd1.getRequestParams().putAll(fd2.getRequestParams()));
-
-        storingFormData.setPrimaryKeyValue(primaryKey);
-
-        // filter sections by permissions
-        // IMPORTANT !!!!! section removing does not work for subform
-//        form.getChildren().removeIf(element -> {
-//            Section section = (Section) element;
-//            UserviewPermission permission = Utilities.getPermissionObject(section, storingFormData);
-//            return permission != null && !permission.isAuthorize();
-//        });
-
-        Map<String, Object> propertyLoadBinder;
-        Plugin pluginLoadBinder;
-        if((propertyLoadBinder = (Map<String, Object>)map.get("loadBinder")) != null
-                && (pluginLoadBinder = pluginManager.getPlugin(String.valueOf(propertyLoadBinder.get(FormUtil.PROPERTY_CLASS_NAME)))) != null
-                && !propertyLoadBinder.isEmpty()) {
-            // TODO : do we really need to implement [loadBinder] property?
-            LogUtil.info(getClassName(), "Using overwritten Load Binder ["+pluginLoadBinder.getName()+"]");
-            try {
-                ((PropertyEditable)pluginLoadBinder).setProperties((Map<String, Object>) propertyLoadBinder.get(FormUtil.PROPERTY_PROPERTIES));
-                form.setLoadBinder((FormLoadBinder) pluginLoadBinder);
-
-                // load previous data
-                formService.executeFormLoadBinders(form, loadingFormData).getLoadBinderData(form)
-                        .stream()
-                        .map(FormRow::entrySet)
-                        .flatMap(Collection::stream)
-                        .filter(e -> isNotNullOrEmpty(e.getKey()) && isNotNullOrEmpty(e.getValue()))
-
-                        // ignore built-in field
-                        .filter(e -> !FormUtil.PROPERTY_ID.equalsIgnoreCase(e.getKey().toString()) && !FormUtil.PROPERTY_DATE_CREATED.equalsIgnoreCase(e.getKey().toString()) && !FormUtil.PROPERTY_CREATED_BY.equalsIgnoreCase(e.getKey().toString()))
-
-                        // get field which in not in fieldValues
-                        .filter(e -> !storingFormData.getRequestParams().containsKey(e.getKey().toString()))
-
-                        // apply data from load binder
-                        .forEach(e -> storingFormData.addRequestParameterValues(e.getKey().toString(), new String[]{e.getValue().toString()}));
-            } catch (Exception e) {
-                LogUtil.error(getClassName(), e, "Error configuring load binder ["+propertyLoadBinder.get(FormUtil.PROPERTY_CLASS_NAME)+"]");
-            }
-        } else {
-            Optional.ofNullable(formService.executeFormLoadBinders(form, loadingFormData))
-                    .map(fd -> fd.getLoadBinderData(form))
-                    .map(Collection::stream)
-                    .orElseGet(Stream::empty)
-                    .map(FormRow::entrySet)
-                    .flatMap(Collection::stream)
-                    .filter(e -> isNotNullOrEmpty(e.getKey()) && isNotNullOrEmpty(e.getValue()))
-                    .filter(e -> !FormUtil.PROPERTY_ID.equalsIgnoreCase(e.getKey().toString()) && !FormUtil.PROPERTY_DATE_CREATED.equalsIgnoreCase(e.getKey().toString()) && !FormUtil.PROPERTY_CREATED_BY.equalsIgnoreCase(e.getKey().toString()))
-                    .filter(e -> !storingFormData.getRequestParams().containsKey(e.getKey().toString()))
-                    .forEach(e -> storingFormData.addRequestParameterValues(e.getKey().toString(), new String[]{e.getValue().toString()}));
+        final FormData formData = new FormData();
+        formData.setPrimaryKeyValue(primaryKey);
+        if(workflowAssignment != null) {
+            formData.setProcessId(workflowAssignment.getProcessId());
+            formData.setActivityId(workflowAssignment.getActivityId());
         }
+
+        Form form = getForm(appDefinition, formDefId, formData);
+        if(form == null) {
+            LogUtil.warn(getClassName(), "Form [" + formDefId + "] not found");
+            return null;
+        }
+
+        final Map<String, String> updateWorkflowVariable = new HashMap<>();
+
+        Arrays.stream((Object[]) map.get("fieldValues"))
+                .map(o -> (Map<String, Object>)o)
+                .forEach(m -> {
+                    String field = String.valueOf(m.get("field"));
+                    String value = String.valueOf(m.get("value"));
+
+                    Element element = FormUtil.findElement(field, form, formData);
+                    String parameterName = FormUtil.getElementParameterName(element);
+
+                    formData.getRequestParams().put(parameterName, new String[] { value });
+
+                    String workflowVariableName = element.getPropertyString("workflowVariable");
+                    updateWorkflowVariable.put(workflowVariableName, value);
+                });
 
         // fill assignment information
         if(workflowAssignment != null) {
-            storingFormData.setActivityId(workflowAssignment.getActivityId());
-            storingFormData.setProcessId(workflowAssignment.getProcessId());
+            formData.setActivityId(workflowAssignment.getActivityId());
+            formData.setProcessId(workflowAssignment.getProcessId());
         }
 
         // submit form
-        appService.submitForm(form, storingFormData, false);
+        FormData submittedFormData = submitForm(form, formData, false);
 
-        String wfVariableResultPrimaryKey = map.get("wfVariableResultPrimaryKey").toString();
-        if (!storingFormData.getFormErrors().isEmpty()) {
-            storingFormData.getFormErrors().forEach((key, value) -> LogUtil.warn(getClassName(), "Validation Error : form [" + formDefId + "] field [" + key + "] [" + value + "]"));
-            if(!wfVariableResultPrimaryKey.isEmpty())
+        String wfVariableResultPrimaryKey = String.valueOf(map.get("wfVariableResultPrimaryKey"));
+        if (!submittedFormData.getFormErrors().isEmpty()) {
+            // show validation error message in log
+            submittedFormData.getFormErrors().forEach((key, value) -> LogUtil.warn(getClassName(), "Validation Error : form [" + formDefId + "] field [" + key + "] [" + value + "]"));
+            if(!wfVariableResultPrimaryKey.isEmpty() && workflowAssignment != null) {
                 workflowManager.processVariable(workflowAssignment.getProcessId(), wfVariableResultPrimaryKey, "");
+            }
         } else {
-            if(!wfVariableResultPrimaryKey.isEmpty())
-                workflowManager.processVariable(workflowAssignment.getProcessId(), wfVariableResultPrimaryKey, storingFormData.getPrimaryKeyValue());
+            // update workflow variables
+            if(!wfVariableResultPrimaryKey.isEmpty() && workflowAssignment != null) {
+                workflowManager.processVariable(workflowAssignment.getProcessId(), wfVariableResultPrimaryKey, submittedFormData.getPrimaryKeyValue());
+                updateWorkflowVariable.forEach((variable, value) -> workflowManager.processVariable(workflowAssignment.getProcessId(), variable, value));
+            }
         }
 
         return null;
@@ -221,5 +182,42 @@ public class FormSubmissionTool extends DefaultApplicationPlugin {
         }
 
         return null;
+    }
+
+    protected Form getForm(@Nonnull AppDefinition appDefinition, @Nonnull String formDefId, @Nonnull final FormData formData) {
+        AppService appService = (AppService) AppUtil.getApplicationContext().getBean("appService");
+
+        Form form = appService.viewDataForm(appDefinition.getAppId(), appDefinition.getVersion().toString(), formDefId, null, null, null, formData, null, null);
+        if(form == null || !form.isAuthorize(formData)) {
+            return null;
+        }
+
+        FormRowSet rowSet = appService.loadFormData(form, formData.getPrimaryKeyValue());
+        if(rowSet != null) {
+            rowSet.forEach(row -> row.forEach((key, value) -> {
+                Element element = FormUtil.findElement(String.valueOf(key), form, formData);
+                if(element != null) {
+                    String parameterName = FormUtil.getElementParameterName(element);
+                    formData.addRequestParameterValues(parameterName, new String[] { String.valueOf(value) });
+                }
+            }));
+        }
+
+        return form;
+    }
+
+    /**
+     * Wrap {@link AppService#submitForm(Form, FormData, boolean)}
+     *
+     * @param form
+     * @param formData
+     * @param ignoreValidation
+     * @return
+     */
+    protected FormData submitForm(Form form, FormData formData, boolean ignoreValidation) {
+        AppService appService = (AppService) AppUtil.getApplicationContext().getBean("appService");
+        String paramName = FormUtil.getElementParameterName(form);
+            formData.addRequestParameterValues(paramName + "_SUBMITTED", new String[]{"true"});
+        return appService.submitForm(form, formData, ignoreValidation);
     }
 }

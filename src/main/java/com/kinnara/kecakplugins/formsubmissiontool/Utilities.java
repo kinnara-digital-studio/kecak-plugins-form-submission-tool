@@ -4,6 +4,7 @@ import org.joget.apps.app.dao.FormDefinitionDao;
 import org.joget.apps.app.model.AppDefinition;
 import org.joget.apps.app.model.FormDefinition;
 import org.joget.apps.app.service.AppUtil;
+import org.joget.apps.form.model.Element;
 import org.joget.apps.form.model.Form;
 import org.joget.apps.form.model.FormData;
 import org.joget.apps.form.model.Section;
@@ -22,6 +23,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Stream;
 
 public class Utilities {
     @Nonnull private static Map<String, Form> formCache = new HashMap<>();
@@ -106,5 +108,24 @@ public class Utilities {
         permission.setCurrentUser(user);
 
         return permission;
+    }
+
+    /**
+     * Stream element children
+     *
+     * @param element
+     * @return
+     */
+    @Nonnull
+    public static Stream<Element> elementStream(@Nonnull Element element, FormData formData) {
+        if (!element.isAuthorize(formData)) {
+            return Stream.empty();
+        }
+
+        Stream<Element> stream = Stream.of(element);
+        for (Element child : element.getChildren()) {
+            stream = Stream.concat(stream, elementStream(child, formData));
+        }
+        return stream;
     }
 }
