@@ -104,6 +104,11 @@ public class FormSubmissionTool extends DefaultApplicationPlugin {
                     String value = String.valueOf(m.get("value"));
 
                     Element element = FormUtil.findElement(field, form, formData);
+                    if(element == null) {
+                        LogUtil.warn(getClassName(), "Element [" + field + "] is not found in form [" + form.getPropertyString("id") + "]");
+                        return ;
+                    }
+
                     String parameterName = FormUtil.getElementParameterName(element);
 
                     formData.getRequestParams().put(parameterName, new String[] { value });
