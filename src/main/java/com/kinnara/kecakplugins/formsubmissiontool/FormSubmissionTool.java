@@ -235,6 +235,7 @@ public class FormSubmissionTool extends DefaultApplicationPlugin {
     protected Map<String, String> getFieldValues(Map map) {
         return Arrays.stream((Object[]) map.get("fieldValues"))
                 .map(o -> (Map<String, Object>) o)
-                .collect(Collectors.toMap(m -> String.valueOf(m.get("field")), m -> String.valueOf(m.get("value"))));
+                .filter(m -> m.containsKey("field") && m.containsKey("value"))
+                .collect(Collectors.toMap(m -> String.valueOf(m.get("field")), m -> String.valueOf(m.get("value")), (s1, s2) -> s1));
     }
 }
