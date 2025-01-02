@@ -1,4 +1,4 @@
-package com.kinnara.kecakplugins.formsubmissiontool;
+package com.kinnarastudio.kecakplugins.formsubmissiontool;
 
 import java.util.ArrayList;
 import java.util.Collection;

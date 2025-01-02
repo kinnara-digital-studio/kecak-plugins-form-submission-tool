@@ -1,29 +1,19 @@
-package com.kinnara.kecakplugins.formsubmissiontool;
+package com.kinnarastudio.kecakplugins.formsubmissiontool;
 
 import org.joget.apps.app.dao.FormDefinitionDao;
 import org.joget.apps.app.model.AppDefinition;
 import org.joget.apps.app.model.FormDefinition;
 import org.joget.apps.app.service.AppUtil;
-import org.joget.apps.form.model.Element;
 import org.joget.apps.form.model.Form;
 import org.joget.apps.form.model.FormData;
-import org.joget.apps.form.model.Section;
 import org.joget.apps.form.service.FormService;
-import org.joget.apps.userview.model.UserviewPermission;
-import org.joget.commons.util.LogUtil;
-import org.joget.directory.model.User;
-import org.joget.directory.model.service.DirectoryManager;
-import org.joget.plugin.base.PluginManager;
 import org.joget.workflow.model.WorkflowAssignment;
 import org.joget.workflow.model.service.WorkflowManager;
-import org.joget.workflow.util.WorkflowUtil;
-import org.springframework.context.ApplicationContext;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.stream.Stream;
 
 public class Utilities {
     @Nonnull private static Map<String, Form> formCache = new HashMap<>();
@@ -78,54 +68,4 @@ public class Utilities {
         return null;
     }
 
-    public static UserviewPermission getPermissionObject(Section section, FormData formData) {
-        ApplicationContext applicationContext = AppUtil.getApplicationContext();
-        PluginManager pluginManager = (PluginManager) applicationContext.getBean("pluginManager");
-        DirectoryManager directoryManager = (DirectoryManager) applicationContext.getBean("directoryManager");
-
-        Map<String, Object> propertyPermission = (Map<String, Object>)section.getProperty("permission");
-        if(propertyPermission == null)
-            return null;
-
-        String className = (String)propertyPermission.get("className");
-        Map<String, Object> properties = (Map<String, Object>)propertyPermission.get("properties");
-
-        UserviewPermission permission = (UserviewPermission) pluginManager.getPlugin(className);
-        if(permission == null)
-            return null;
-
-        if(properties != null)
-            permission.setProperties(properties);
-
-        permission.setFormData(formData);
-
-        String username = WorkflowUtil.getCurrentUsername();
-        User user = directoryManager.getUserById(username);
-        if(user == null) {
-            LogUtil.warn(Utilities.class.getName(), "Username ["+username+"] is not listed in directory manager");
-        }
-
-        permission.setCurrentUser(user);
-
-        return permission;
-    }
-
-    /**
-     * Stream element children
-     *
-     * @param element
-     * @return
-     */
-    @Nonnull
-    public static Stream<Element> elementStream(@Nonnull Element element, FormData formData) {
-        if (!element.isAuthorize(formData)) {
-            return Stream.empty();
-        }
-
-        Stream<Element> stream = Stream.of(element);
-        for (Element child : element.getChildren()) {
-            stream = Stream.concat(stream, elementStream(child, formData));
-        }
-        return stream;
-    }
 }

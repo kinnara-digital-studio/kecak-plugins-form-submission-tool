@@ -1,4 +1,4 @@
-package com.kinnara.kecakplugins.formsubmissiontool;
+package com.kinnarastudio.kecakplugins.formsubmissiontool;
 
 import org.joget.apps.app.service.AppPluginUtil;
 import org.joget.apps.app.service.AppUtil;
@@ -6,8 +6,9 @@ import org.joget.apps.form.lib.WorkflowFormBinder;
 import org.joget.apps.form.model.Element;
 import org.joget.apps.form.model.FormData;
 import org.joget.apps.form.model.FormRowSet;
-import org.joget.workflow.model.WorkflowAssignment;
-import org.joget.workflow.model.service.WorkflowManager;
+import org.joget.plugin.base.PluginManager;
+
+import java.util.ResourceBundle;
 
 /**
  * 
@@ -40,7 +41,10 @@ public class WorkflowFormStoreBinder extends WorkflowFormBinder {
 	}
 
 	public String getVersion() {
-		return getClass().getPackage().getImplementationVersion();
+		PluginManager pluginManager = (PluginManager) AppUtil.getApplicationContext().getBean("pluginManager");
+		ResourceBundle resourceBundle = pluginManager.getPluginMessageBundle(getClassName(), "/messages/BuildNumber");
+		String buildNumber = resourceBundle.getString("buildNumber");
+		return buildNumber;
 	}
 
 	public String getDescription() {

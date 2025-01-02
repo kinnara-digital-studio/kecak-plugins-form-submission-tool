@@ -1,4 +1,4 @@
-package com.kinnara.kecakplugins.formsubmissiontool;
+package com.kinnarastudio.kecakplugins.formsubmissiontool;
 
 import org.joget.apps.app.model.AppDefinition;
 import org.joget.apps.app.service.AppPluginUtil;
@@ -33,7 +33,10 @@ public class FormSubmissionTool extends DefaultApplicationPlugin {
 
     @Override
     public String getVersion() {
-        return getClass().getPackage().getImplementationVersion();
+        PluginManager pluginManager = (PluginManager) AppUtil.getApplicationContext().getBean("pluginManager");
+        ResourceBundle resourceBundle = pluginManager.getPluginMessageBundle(getClassName(), "/messages/BuildNumber");
+        String buildNumber = resourceBundle.getString("buildNumber");
+        return buildNumber;
     }
 
     @Override
