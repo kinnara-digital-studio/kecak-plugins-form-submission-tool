@@ -1,5 +1,6 @@
 package com.kinnarastudio.kecakplugins.formsubmissiontool;
 
+import com.kinnarastudio.kecakplugins.formsubmissiontool.exception.NoPrimaryKeyException;
 import org.joget.apps.app.model.AppDefinition;
 import org.joget.apps.app.service.AppPluginUtil;
 import org.joget.apps.app.service.AppService;
@@ -11,6 +12,7 @@ import org.joget.commons.util.LogUtil;
 import org.joget.plugin.base.DefaultApplicationPlugin;
 import org.joget.plugin.base.PluginManager;
 import org.joget.workflow.model.WorkflowAssignment;
+import org.joget.workflow.model.WorkflowProcess;
 import org.joget.workflow.model.WorkflowProcessLink;
 import org.joget.workflow.model.service.WorkflowManager;
 import org.kecak.apps.form.service.FormDataUtil;
@@ -46,111 +48,113 @@ public class FormSubmissionTool extends DefaultApplicationPlugin {
 
     @Override
     public Object execute(Map map) {
-        ApplicationContext applicationContext = AppUtil.getApplicationContext();
-        WorkflowAssignment workflowAssignment = (WorkflowAssignment) map.get("workflowAssignment");
-        PluginManager pluginManager = (PluginManager) applicationContext.getBean("pluginManager");
-        WorkflowManager workflowManager = (WorkflowManager) applicationContext.getBean("workflowManager");
-        AppDefinition appDefinition = (AppDefinition) map.get("appDef");
+        try {
+            ApplicationContext applicationContext = AppUtil.getApplicationContext();
+            WorkflowAssignment workflowAssignment = (WorkflowAssignment) map.get("workflowAssignment");
+            PluginManager pluginManager = (PluginManager) applicationContext.getBean("pluginManager");
+            WorkflowManager workflowManager = (WorkflowManager) applicationContext.getBean("workflowManager");
+            AppDefinition appDefinition = (AppDefinition) map.get("appDef");
 
-        String formDefId = map.get("formDefId").toString();
+            String formDefId = map.get("formDefId").toString();
 
-        // get primary key from property "primaryKey"
-        String primaryKey = Optional.of("primaryKey")
-                .map(map::get)
-                .map(String::valueOf)
-                .map(s -> s.replaceAll("#.+#", ""))
-                .filter(s -> !s.isEmpty())
+            // get primary key from property "primaryKey"
+            String primaryKey = Optional.of(getPrimaryKey())
+                    .filter(s -> !s.isEmpty())
+                    .orElseGet(() -> Optional.of("recordId")
+                            .map(map::get)
+                            .map(String::valueOf)
+                            .filter(s -> !s.isEmpty())
 
-                // or get from property "recordId"
-                .orElseGet(() -> Optional.of("recordId")
-                        .map(map::get)
-                        .map(String::valueOf)
-                        .filter(s -> !s.isEmpty())
+                            // or get from workflow assignment, originProcessId
+                            .orElseGet(() -> {
+                                final WorkflowProcess workflowProcess = workflowManager.getRunningProcessById(workflowAssignment.getProcessId());
 
-                        // or get from workflow assignment, originProcessId
-                        .orElseGet(() -> Optional.ofNullable(workflowAssignment)
-                                .map(WorkflowAssignment::getProcessId)
-                                .map(workflowManager::getWorkflowProcessLink)
-                                .map(WorkflowProcessLink::getOriginProcessId)
-                                .filter(s -> !s.isEmpty())
+                                String recordId = workflowProcess.getInstanceId();
+                                WorkflowProcessLink link = workflowManager.getWorkflowProcessLink(recordId);
+                                if (link != null) {
+                                    recordId = link.getOriginProcessId();
+                                }
 
-                                // or get from workflow assignment's process ID
-                                .orElseGet(() -> Optional.ofNullable(workflowAssignment)
-                                        .map(WorkflowAssignment::getProcessId)
-                                        .filter(s -> !s.isEmpty())
+                                return recordId;
+                            }));
 
-                                        // desperately use UUID
-                                        .orElseGet(() -> UUID.randomUUID().toString()))));
+            if (primaryKey == null || primaryKey.isEmpty()) {
+                throw new NoPrimaryKeyException("Primary key is not found");
+            }
 
-        final FormData formData = new FormData();
-        formData.setPrimaryKeyValue(primaryKey);
-        if (workflowAssignment != null) {
-            formData.setProcessId(workflowAssignment.getProcessId());
-            formData.setActivityId(workflowAssignment.getActivityId());
-        }
+            final FormData formData = new FormData();
+            formData.setPrimaryKeyValue(primaryKey);
+            if (workflowAssignment != null) {
+                formData.setProcessId(workflowAssignment.getProcessId());
+                formData.setActivityId(workflowAssignment.getActivityId());
+            }
 
-        Form form = getForm(appDefinition, formDefId, formData);
-        if (form == null) {
-            LogUtil.warn(getClassName(), "Form [" + formDefId + "] not found");
+            Form form = getForm(appDefinition, formDefId, formData);
+            if (form == null) {
+                LogUtil.warn(getClassName(), "Form [" + formDefId + "] not found");
+                return null;
+            }
+
+            final Map<String, String> updateWorkflowVariable = new HashMap<>();
+
+            final Map<String, String> fieldValues = getFieldValues(map);
+
+            FormDataUtil.elementStream(form, formData)
+                    .filter(element -> !(element instanceof FormContainer))
+                    .forEach(element -> {
+                        String parameterName = FormUtil.getElementParameterName(element);
+                        String elementId = element.getPropertyString("id");
+                        if (element instanceof HiddenField || fieldValues.containsKey(elementId)) {
+                            String value = null;
+
+                            if (element instanceof HiddenField) {
+                                boolean dbFirst = "true".equals(element.getPropertyString("useDefaultWhenEmpty"));
+                                if (!dbFirst) {
+                                    value = element.getPropertyString("value");
+                                }
+                            } else if (fieldValues.containsKey(elementId)) {
+                                value = fieldValues.get(elementId);
+                            }
+
+                            if (value != null) {
+                                formData.getRequestParams().put(parameterName, new String[]{value});
+                                String workflowVariableName = element.getPropertyString("workflowVariable");
+                                if (!workflowVariableName.isEmpty()) {
+                                    updateWorkflowVariable.put(workflowVariableName, value);
+                                }
+                            }
+                        }
+                    });
+
+            // fill assignment information
+            if (workflowAssignment != null) {
+                formData.setActivityId(workflowAssignment.getActivityId());
+                formData.setProcessId(workflowAssignment.getProcessId());
+            }
+
+            // submit form
+            FormData submittedFormData = submitForm(form, formData, false);
+
+            String wfVariableResultPrimaryKey = String.valueOf(map.get("wfVariableResultPrimaryKey"));
+            if (!submittedFormData.getFormErrors().isEmpty()) {
+                // show validation error message in log
+                submittedFormData.getFormErrors().forEach((key, value) -> LogUtil.warn(getClassName(), "Validation Error : form [" + formDefId + "] field [" + key + "] [" + value + "]"));
+                if (!wfVariableResultPrimaryKey.isEmpty() && workflowAssignment != null) {
+                    workflowManager.processVariable(workflowAssignment.getProcessId(), wfVariableResultPrimaryKey, "");
+                }
+            } else {
+                // update workflow variables
+                if (!wfVariableResultPrimaryKey.isEmpty() && workflowAssignment != null) {
+                    workflowManager.processVariable(workflowAssignment.getProcessId(), wfVariableResultPrimaryKey, submittedFormData.getPrimaryKeyValue());
+                    updateWorkflowVariable.forEach((variable, value) -> workflowManager.processVariable(workflowAssignment.getProcessId(), variable, value));
+                }
+            }
+
+            return null;
+        } catch (NoPrimaryKeyException e) {
+            LogUtil.error(getClassName(), e, e.getMessage());
             return null;
         }
-
-        final Map<String, String> updateWorkflowVariable = new HashMap<>();
-
-        final Map<String, String> fieldValues = getFieldValues(map);
-
-        FormDataUtil.elementStream(form, formData)
-                .filter(element -> !(element instanceof FormContainer))
-                .forEach(element -> {
-                    String parameterName = FormUtil.getElementParameterName(element);
-                    String elementId = element.getPropertyString("id");
-                    if (element instanceof HiddenField || fieldValues.containsKey(elementId)) {
-                        String value = null;
-
-                        if (element instanceof HiddenField) {
-                            boolean dbFirst = "true".equals(element.getPropertyString("useDefaultWhenEmpty"));
-                            if (!dbFirst) {
-                                value = element.getPropertyString("value");
-                            }
-                        } else if(fieldValues.containsKey(elementId)){
-                            value = fieldValues.get(elementId);
-                        }
-
-                        if(value != null) {
-                            formData.getRequestParams().put(parameterName, new String[]{value});
-                            String workflowVariableName = element.getPropertyString("workflowVariable");
-                            if (!workflowVariableName.isEmpty()) {
-                                updateWorkflowVariable.put(workflowVariableName, value);
-                            }
-                        }
-                    }
-                });
-
-        // fill assignment information
-        if (workflowAssignment != null) {
-            formData.setActivityId(workflowAssignment.getActivityId());
-            formData.setProcessId(workflowAssignment.getProcessId());
-        }
-
-        // submit form
-        FormData submittedFormData = submitForm(form, formData, false);
-
-        String wfVariableResultPrimaryKey = String.valueOf(map.get("wfVariableResultPrimaryKey"));
-        if (!submittedFormData.getFormErrors().isEmpty()) {
-            // show validation error message in log
-            submittedFormData.getFormErrors().forEach((key, value) -> LogUtil.warn(getClassName(), "Validation Error : form [" + formDefId + "] field [" + key + "] [" + value + "]"));
-            if (!wfVariableResultPrimaryKey.isEmpty() && workflowAssignment != null) {
-                workflowManager.processVariable(workflowAssignment.getProcessId(), wfVariableResultPrimaryKey, "");
-            }
-        } else {
-            // update workflow variables
-            if (!wfVariableResultPrimaryKey.isEmpty() && workflowAssignment != null) {
-                workflowManager.processVariable(workflowAssignment.getProcessId(), wfVariableResultPrimaryKey, submittedFormData.getPrimaryKeyValue());
-                updateWorkflowVariable.forEach((variable, value) -> workflowManager.processVariable(workflowAssignment.getProcessId(), variable, value));
-            }
-        }
-
-        return null;
     }
 
     @Override
@@ -192,7 +196,7 @@ public class FormSubmissionTool extends DefaultApplicationPlugin {
                 }
             }
         } catch (SQLException throwables) {
-            throwables.printStackTrace();
+            LogUtil.error(getClassName(), throwables, "SQL error");
         }
 
         return null;
@@ -240,5 +244,9 @@ public class FormSubmissionTool extends DefaultApplicationPlugin {
                 .map(o -> (Map<String, Object>) o)
                 .filter(m -> m.containsKey("field") && m.containsKey("value"))
                 .collect(Collectors.toMap(m -> String.valueOf(m.get("field")), m -> String.valueOf(m.get("value")), (s1, s2) -> s1));
+    }
+
+    protected String getPrimaryKey() {
+        return getPropertyString("primaryKey");
     }
 }
