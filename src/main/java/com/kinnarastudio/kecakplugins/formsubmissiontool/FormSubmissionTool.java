@@ -133,7 +133,7 @@ public class FormSubmissionTool extends DefaultApplicationPlugin {
             }
 
             // submit form
-            FormData submittedFormData = submitForm(form, formData, false);
+            FormData submittedFormData = submitForm(form, formData, true);
 
             String wfVariableResultPrimaryKey = String.valueOf(map.get("wfVariableResultPrimaryKey"));
             if (!submittedFormData.getFormErrors().isEmpty()) {
