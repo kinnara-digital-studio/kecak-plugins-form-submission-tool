@@ -82,12 +82,15 @@ public class FormSubmissionTool extends DefaultApplicationPlugin {
                 throw new NoPrimaryKeyException("Primary key is not found");
             }
 
-            final FormData formData = new FormData();
-            formData.setPrimaryKeyValue(primaryKey);
-            if (workflowAssignment != null) {
-                formData.setProcessId(workflowAssignment.getProcessId());
-                formData.setActivityId(workflowAssignment.getActivityId());
-            }
+            final FormData formData = new FormData() {{
+                setPrimaryKeyValue(primaryKey);
+
+                if (workflowAssignment != null) {
+                    setProcessId(workflowAssignment.getProcessId());
+                    setActivityId(workflowAssignment.getActivityId());
+                }
+            }};
+
 
             Form form = getForm(appDefinition, formDefId, formData);
             if (form == null) {
@@ -97,34 +100,22 @@ public class FormSubmissionTool extends DefaultApplicationPlugin {
 
             final Map<String, String> updateWorkflowVariable = new HashMap<>();
 
-            final Map<String, String> fieldValues = getFieldValues(map);
+            final Map<String, String> fieldValues = getFieldValues();
 
-            FormDataUtil.elementStream(form, formData)
-                    .filter(element -> !(element instanceof FormContainer))
-                    .forEach(element -> {
-                        String parameterName = FormUtil.getElementParameterName(element);
-                        String elementId = element.getPropertyString("id");
-                        if (element instanceof HiddenField || fieldValues.containsKey(elementId)) {
-                            String value = null;
+            fieldValues.forEach((id, value) -> {
+                final Element element = FormUtil.findElement(id, form, formData);
+                if (element == null) {
+                    return;
+                }
 
-                            if (element instanceof HiddenField) {
-                                boolean dbFirst = "true".equals(element.getPropertyString("useDefaultWhenEmpty"));
-                                if (!dbFirst) {
-                                    value = element.getPropertyString("value");
-                                }
-                            } else if (fieldValues.containsKey(elementId)) {
-                                value = fieldValues.get(elementId);
-                            }
+                final String parameterName = FormUtil.getElementParameterName(element);
+                formData.getRequestParams().put(parameterName, new String[]{value});
 
-                            if (value != null) {
-                                formData.getRequestParams().put(parameterName, new String[]{value});
-                                String workflowVariableName = element.getPropertyString("workflowVariable");
-                                if (!workflowVariableName.isEmpty()) {
-                                    updateWorkflowVariable.put(workflowVariableName, value);
-                                }
-                            }
-                        }
-                    });
+                final String workflowVariableName = element.getPropertyString("workflowVariable");
+                if (!workflowVariableName.isEmpty()) {
+                    updateWorkflowVariable.put(workflowVariableName, value);
+                }
+            });
 
             // fill assignment information
             if (workflowAssignment != null) {
@@ -133,9 +124,9 @@ public class FormSubmissionTool extends DefaultApplicationPlugin {
             }
 
             // submit form
-            FormData submittedFormData = submitForm(form, formData, true);
+            final FormData submittedFormData = submitForm(form, formData, true);
 
-            String wfVariableResultPrimaryKey = String.valueOf(map.get("wfVariableResultPrimaryKey"));
+            final String wfVariableResultPrimaryKey = String.valueOf(map.get("wfVariableResultPrimaryKey"));
             if (!submittedFormData.getFormErrors().isEmpty()) {
                 // show validation error message in log
                 submittedFormData.getFormErrors().forEach((key, value) -> LogUtil.warn(getClassName(), "Validation Error : form [" + formDefId + "] field [" + key + "] [" + value + "]"));
@@ -239,8 +230,8 @@ public class FormSubmissionTool extends DefaultApplicationPlugin {
         return appService.submitForm(form, formData, ignoreValidation);
     }
 
-    protected Map<String, String> getFieldValues(Map map) {
-        return Arrays.stream((Object[]) map.get("fieldValues"))
+    protected Map<String, String> getFieldValues() {
+        return Arrays.stream((Object[]) getProperty("fieldValues"))
                 .map(o -> (Map<String, Object>) o)
                 .filter(m -> m.containsKey("field") && m.containsKey("value"))
                 .collect(Collectors.toMap(m -> String.valueOf(m.get("field")), m -> String.valueOf(m.get("value")), (s1, s2) -> s1));
