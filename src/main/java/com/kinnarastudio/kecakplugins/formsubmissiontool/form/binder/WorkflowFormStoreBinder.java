@@ -1,5 +1,6 @@
-package com.kinnarastudio.kecakplugins.formsubmissiontool;
+package com.kinnarastudio.kecakplugins.formsubmissiontool.form.binder;
 
+import com.kinnarastudio.kecakplugins.formsubmissiontool.FormSubmissionTool;
 import org.joget.apps.app.service.AppPluginUtil;
 import org.joget.apps.app.service.AppUtil;
 import org.joget.apps.form.lib.WorkflowFormBinder;
@@ -33,7 +34,7 @@ public class WorkflowFormStoreBinder extends WorkflowFormBinder {
 	}
 
 	public String getPropertyOptions() {
-		return AppUtil.readPluginResource(getClassName(), "/properties/WorkflowFormLoadBinder.json", null, true, "/messages/WorkflowFormLoadBinder");
+		return AppUtil.readPluginResource(getClassName(), "/properties/form/binder/WorkflowFormLoadBinder.json", null, true, "/messages/WorkflowFormLoadBinder");
 	}
 
 	public String getName() {

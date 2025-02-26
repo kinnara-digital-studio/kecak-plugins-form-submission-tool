@@ -1,0 +1,70 @@
+[
+  {
+    "title": "@@dataListFormSubmissionTool.title@@",
+    "properties": [
+      {
+        "label": "@@dataListFormSubmissionTool.source@@",
+        "type": "header"
+      },
+      {
+        "name": "dataListId",
+        "label": "@@dataListFormSubmissionTool.dataList@@",
+        "type": "selectbox",
+        "required": "true",
+        "options_ajax": "[CONTEXT_PATH]/web/json/console/app[APP_PATH]/datalist/options"
+      },
+      {
+        "name": "dataListFilter",
+        "label": "@@dataListFormSubmissionTool.dataListFilter@@",
+        "type": "grid",
+        "columns": [
+          {
+            "key": "name",
+            "label": "@@dataListFormSubmissionTool.dataListFilter.name@@",
+            "required": "true"
+          },
+          {
+            "key": "value",
+            "label": "@@dataListFormSubmissionTool.dataListFilter.value@@"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "@@dataListFormSubmissionTool.target@@",
+    "properties": [
+      {
+        "label": "@@dataListFormSubmissionTool.target@@",
+        "type": "header"
+      },
+      {
+        "name": "formDefId",
+        "label": "@@dataListFormSubmissionTool.formDefId@@",
+        "type": "selectbox",
+        "required": "true",
+        "options_ajax": "[CONTEXT_PATH]/web/json/console/app[APP_PATH]/forms/options"
+      },
+      {
+        "name": "valuesMapping",
+        "label": "@@dataListFormSubmissionTool.valuesMapping@@",
+        "type": "grid",
+        "columns": [
+          {
+            "key": "formField",
+            "label": "@@dataListFormSubmissionTool.valuesMapping.formField@@",
+            "required": "true"
+          },
+          {
+            "key": "dataListField",
+            "label": "@@dataListFormSubmissionTool.valuesMapping.dataListField@@"
+          },
+          {
+            "key": "constantValue",
+            "label": "@@dataListFormSubmissionTool.valuesMapping.constantValue@@"
+          }
+        ]
+      }
+    ]
+  }
+]
