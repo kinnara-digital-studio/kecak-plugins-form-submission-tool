@@ -51,15 +51,14 @@ public class DataListFormSubmissionTool extends DefaultApplicationPlugin {
 
     @Override
     public Object execute(Map properties) {
-        LogUtil.info(getClassName(), "execute");
-
         PluginManager pluginManager = (PluginManager) properties.get("pluginManager");
         WorkflowManager workflowManager = (WorkflowManager) pluginManager.getBean("workflowManager");
         WorkflowAssignment workflowAssignment = (WorkflowAssignment) properties.get("workflowAssignment");
         AppDefinition appDefinition = AppUtil.getCurrentAppDefinition();
 
         try {
-            DataList dataList = Utils.generateDataList(getPropertyString("dataListId"), workflowAssignment);
+            final String dataListId = getPropertyString("dataListId");
+            DataList dataList = Utils.generateDataList(dataListId, workflowAssignment);
             Map<String, List<String>> filters = getPropertyDataListFilter(this, workflowAssignment);
             getCollectFilters(dataList, filters);
             DataListCollection<Map<String, Object>> dataListCollection = Optional.of(dataList)
@@ -75,7 +74,6 @@ public class DataListFormSubmissionTool extends DefaultApplicationPlugin {
             final Triple<String, String, String>[] fieldValues = getValuesMapping();
 
             for (Map<String, Object> dataListCollectionRow : dataListCollection) {
-                LogUtil.info(getClassName(), "============================");
 
                 FormData formData = new FormData() {{
                     if (workflowAssignment != null) {
@@ -108,11 +106,8 @@ public class DataListFormSubmissionTool extends DefaultApplicationPlugin {
                     formData.getRequestParams().put(parameterName, new String[]{value});
                 }
 
-                formData.getRequestParams().forEach((key, values) -> LogUtil.info(getClassName(), "key [" + key + "] values [" + String.join(";", values) + "]"));
-
                 formData = Utils.submitForm(form, formData, true);
 
-                LogUtil.info(getClassName(), "Form submitted with record id [" + formData.getPrimaryKeyValue() + "]");
                 formData.getFormResults().forEach((key, value) -> LogUtil.info(getClassName(), "Form result key [" + key + "] [" + value + "]"));
                 formData.getFormErrors().forEach((key, value) -> LogUtil.info(getClassName(), "Form error key [" + key + "] [" + value + "]"));
             }
